@@ -10,11 +10,14 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: process.env.CLIENT_URL || "*" })); // Restrict in production
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
+app.get("/", (req, res) => {
+  res.send("Hello, World!");
+});
 app.use("/api/users", require("./routes/userroutes"));
 app.use("/api/products", require("./routes/productroutes"));
 app.use("/api/cart", require("./routes/cartroutes"));
@@ -58,7 +61,9 @@ mongoose
 // Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!", error: err.message });
+  res
+    .status(500)
+    .json({ message: "Something went wrong!", error: err.message });
 });
 
 // 404 Handler
