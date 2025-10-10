@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../models/order");
 const Product = require("../models/product");
-const User = require("../models/User");
+const User = require("../models/user");
 
 // Admin authentication middleware
 const isAdmin = (req, res, next) => {
