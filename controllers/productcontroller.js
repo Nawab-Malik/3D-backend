@@ -22,3 +22,21 @@ exports.getProductById = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.getRelatedProducts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const base = await Product.findById(id);
+    if (!base) return res.status(404).json({ message: "Product not found" });
+
+    const categories = Array.isArray(base.categories) ? base.categories : [];
+    const filter = categories.length
+      ? { _id: { $ne: base._id }, categories: { $in: categories } }
+      : { _id: { $ne: base._id } };
+
+    const related = await Product.find(filter).limit(8);
+    res.json({ products: related });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

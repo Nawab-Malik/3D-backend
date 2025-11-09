@@ -9,8 +9,27 @@ router.get("/setup-admin", async (req, res) => {
   try {
     // Check if admin already exists
     const existingAdmin = await User.findOne({ email: "admin@3dprints.com" });
+    const force = ["1", "true", "yes"].includes(String(req.query.force || "").toLowerCase());
 
     if (existingAdmin) {
+      if (force) {
+        const saltRounds = 10;
+        existingAdmin.password = await bcrypt.hash("admin123", saltRounds);
+        existingAdmin.role = "admin";
+        existingAdmin.isVerified = true;
+        await existingAdmin.save();
+        return res.json({
+          success: true,
+          message: "Admin user password reset and role ensured (forced)",
+          credentials: { email: "admin@3dprints.com", password: "admin123" },
+          user: {
+            id: existingAdmin._id,
+            name: existingAdmin.name,
+            email: existingAdmin.email,
+            role: existingAdmin.role,
+          },
+        });
+      }
       return res.json({
         success: true,
         message: "Admin user already exists",

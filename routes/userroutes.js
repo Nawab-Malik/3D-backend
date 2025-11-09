@@ -4,14 +4,16 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const crypto = require("crypto");
 
 // Register
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -26,7 +28,7 @@ router.post("/register", async (req, res) => {
     // Create user
     const user = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       phone,
     });
@@ -65,9 +67,10 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -151,3 +154,71 @@ router.get("/me", async (req, res) => {
 });
 
 module.exports = router;
+
+// Forgot Password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    // Always respond success to prevent email enumeration
+    const genericResponse = {
+      success: true,
+      message: "If an account with that email exists, a reset link has been sent.",
+    };
+
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    const clientBase = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientBase}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+
+    // In development, return reset URL for convenience
+    if (process.env.NODE_ENV !== "production") {
+      return res.json({ ...genericResponse, resetUrl, token });
+    }
+
+    return res.json(genericResponse);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// Reset Password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: "Token and new password are required" });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid or expired reset token" });
+    }
+
+    const saltRounds = 10;
+    user.password = await bcrypt.hash(password, saltRounds);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return res.json({ success: true, message: "Password has been reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});

@@ -18,7 +18,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.get("/", (req, res) => {
   res.send("Hello, World!");
 });
+
+// Existing routes
 app.use("/api/users", require("./routes/userroutes"));
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/products", require("./routes/productroutes"));
 app.use("/api/cart", require("./routes/cartroutes"));
 app.use("/api/orders", require("./routes/orderroutes"));
@@ -26,6 +29,19 @@ app.use("/api/admin", require("./routes/adminroutes")); // Main admin routes
 app.use("/api/admin/orders", require("./routes/adminorders")); // Admin orders under admin path
 app.use("/api/test", require("./routes/test"));
 app.use("/api/setup", require("./routes/tempadmin"));
+app.use("/api/gallery", require("./routes/galleryroutes"));
+app.use("/api/admin/gallery", require("./routes/admingallery"));
+app.use("/api/contact", require("./routes/contact"));
+app.use("/api/feedback", require("./routes/feedback"));
+
+// New feature routes
+app.use("/api/coupons", require("./routes/couponroutes"));
+app.use("/api/subscriptions", require("./routes/subscriptionroutes"));
+app.use("/api/announcements", require("./routes/announcementroutes"));
+app.use("/api/referrals", require("./routes/referralroutes"));
+app.use("/api/shipping", require("./routes/shippingroutes"));
+app.use("/api/payment", require("./routes/paymentroutes"));
+app.use("/api/tracking", require("./routes/trackingroutes"));
 
 // Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, "uploads");

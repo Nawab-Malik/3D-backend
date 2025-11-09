@@ -81,7 +81,7 @@ router.post(
       console.log("Request body:", req.body);
       console.log("Uploaded file:", req.file);
 
-      const { title, categories, description, price, originalPrice } = req.body;
+      const { title, categories, description, price, originalPrice, hasVariations, variations } = req.body;
 
       if (!title || !price) {
         return res
@@ -93,7 +93,7 @@ router.post(
         ? `/uploads/${req.file.filename}`
         : "/uploads/default-product.png";
 
-      const product = new Product({
+      const productData = {
         title,
         categories: categories
           ? categories.split(",").map((cat) => cat.trim())
@@ -104,8 +104,25 @@ router.post(
           ? parseFloat(originalPrice)
           : parseFloat(price),
         imageUrl,
-      });
+        hasVariations: hasVariations === 'true' || hasVariations === true,
+      };
 
+      // Parse and add variations if provided
+      if (productData.hasVariations && variations) {
+        try {
+          const parsedVariations = typeof variations === 'string' 
+            ? JSON.parse(variations) 
+            : variations;
+          productData.variations = parsedVariations;
+          // Calculate total stock
+          productData.totalStock = parsedVariations.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+        } catch (e) {
+          console.error('Error parsing variations:', e);
+          productData.variations = [];
+        }
+      }
+
+      const product = new Product(productData);
       const savedProduct = await product.save();
       res.status(201).json(savedProduct);
     } catch (err) {
@@ -123,7 +140,7 @@ router.put(
   handleMulterError,
   async (req, res) => {
     try {
-      const { title, categories, description, price, originalPrice } = req.body;
+      const { title, categories, description, price, originalPrice, hasVariations, variations } = req.body;
 
       // Get the current product to check if we need to delete the old image
       const currentProduct = await Product.findById(req.params.id);
@@ -138,7 +155,26 @@ router.put(
         originalPrice: originalPrice
           ? parseFloat(originalPrice)
           : parseFloat(price),
+        hasVariations: hasVariations === 'true' || hasVariations === true,
       };
+
+      // Parse and add variations if provided
+      if (updateData.hasVariations && variations) {
+        try {
+          const parsedVariations = typeof variations === 'string' 
+            ? JSON.parse(variations) 
+            : variations;
+          updateData.variations = parsedVariations;
+          // Calculate total stock
+          updateData.totalStock = parsedVariations.reduce((sum, v) => sum + (parseInt(v.stock) || 0), 0);
+        } catch (e) {
+          console.error('Error parsing variations:', e);
+          updateData.variations = [];
+        }
+      } else {
+        updateData.variations = [];
+        updateData.totalStock = 0;
+      }
 
       if (req.file) {
         // Delete the old image if it exists and is not the default

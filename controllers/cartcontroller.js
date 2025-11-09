@@ -23,30 +23,51 @@ exports.getCart = async (req, res) => {
 
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity = 1 } = req.body;
-    let cart = await Cart.findOne();
+    const { productId, quantity = 1, variation } = req.body;
+    const userId = req.user?.id;
+    
+    let cart = await Cart.findOne({ user: userId });
 
     if (!cart) {
-      cart = new Cart({ items: [] });
+      cart = new Cart({ user: userId, items: [] });
     }
 
-    const existingItem = cart.items.find(
-      item => item.productId.toString() === productId
-    );
+    // Check if same product with same variation exists
+    const existingItem = cart.items.find(item => {
+      const productMatch = item.product.toString() === productId;
+      
+      // If no variations, just match by product
+      if (!variation && !item.variation) return productMatch;
+      
+      // If one has variation and other doesn't, they're different
+      if (!variation || !item.variation) return false;
+      
+      // Both have variations, check if they match
+      const variationMatch = 
+        item.variation.variationId?.toString() === variation.variationId?.toString() ||
+        (item.variation.color === variation.color && item.variation.size === variation.size);
+      
+      return productMatch && variationMatch;
+    });
 
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
-      cart.items.push({ productId, quantity });
+      const newItem = { product: productId, quantity };
+      if (variation) {
+        newItem.variation = variation;
+      }
+      cart.items.push(newItem);
     }
 
     await cart.save();
 
-    // Populate and return updated cart in {product, quantity} format
-    cart = await Cart.findById(cart._id).populate("items.productId");
+    // Populate and return updated cart
+    cart = await Cart.findById(cart._id).populate("items.product");
     const items = cart.items.map(item => ({
-      product: item.productId,
-      quantity: item.quantity
+      product: item.product,
+      quantity: item.quantity,
+      variation: item.variation
     }));
 
     res.json({ items });
